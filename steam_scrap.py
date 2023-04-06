@@ -10,6 +10,7 @@ import datetime
 import platform
 
 #함수
+#game information crawling
 def game_info(steam_game):
     game_df = pd.DataFrame(columns=['ID','Title','Genre','Developer','Publisher','Franchies','Release_date','Recent_reviews','All_reviews','URL','scraptime'])
     #추가되는 culum에 따라 순서를 보기 좋게 배열할 것
@@ -86,6 +87,132 @@ def game_info(steam_game):
     game_df=pd.concat([game_df,info],ignore_index=True)
 
     return game_df
+#game review crawling
+def review_game(steam_game):
+    review_df = pd.DataFrame(columns=['ID','Date','User_id','play_time','rate_funny','rate_useful','recommend','review_text','review_url','tooltip','scraptime'])
+    #추가되는 culum에 따라 순서를 보기 좋게 배열할 것
+
+    #move_page
+    driver.get(steam_game)
+
+    #review page make
+    game_code = driver.current_url.split('/')[4]
+    reviews_page = ("https://steamcommunity.com/app/%s/reviews/?browsefilter=toprated&filterLanguage=english" %game_code)
+
+    #move_page
+    driver.get(reviews_page)
+
+    #==스크롤 구간==
+    #scroll
+    scroll_pause_time = 3 #컴퓨팅 상황에 따라 변경
+    scroll_counter = 200
+    # Get scroll height
+    last_height = driver.execute_script("return document.body.scrollHeight")
+    i=0
+    while i < scroll_counter: #스크롤당 10건이므로 1000개 이상 확보하기 위해 숫자를 크게 잡음
+        # Scroll down to bottom
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        # Wait to load page
+        time.sleep(scroll_pause_time)
+        # Calculate new scroll height and compare with last scroll height
+        new_height = driver.execute_script("return document.body.scrollHeight")
+        if new_height == last_height:
+            break
+        last_height = new_height
+        i+=1
+
+    #==스크롤 구간 끝==
+
+    #review url list make
+    html = driver.page_source
+    soup = BeautifulSoup(html, 'html.parser')
+
+    a = soup.findAll('div', {'class' : "apphub_Card modalContentLink interactable"})
+    print("Scraped posts: ", len(a))
+    user_article_list = []
+    for i in range(len(a)) :
+        #user_article_list.append(str(a[i]).split('data-modal-content-url=\"')[-1].split('\" style=')[0])
+        user_article_list.append(str(a[i]).split('data-modal-content-url=\"')[-1].split('\" data-panel=')[0])
+
+    #print(user_article_list)
+
+    #review scraping
+    count = 0 
+    #print("total link:", len(user_article_list))
+    for user_article in user_article_list:
+
+        #진행도
+        if count % 10 ==0:
+            print(str(count),"/", len(user_article_list), end='\r') #캐리지 리턴(\r) 사용, 제자리 출력
+
+        response = requests.get(user_article)
+        html = response.text
+        soup = BeautifulSoup(html, 'html.parser')
+
+        # 리뷰 링크
+        review_url = user_article 
+
+        # 유저 아이디
+        try:
+            user_id = soup.find('span', {'class' : "profile_small_header_name"}).get_text().strip()
+        except:
+            user_id = 'Nonetype_error'
+
+        # 날짜
+        try:
+            date = soup.find('div',{'class':"recommendation_date"}).get_text().split('Posted: ')[-1].split('\t')[0]
+        except:
+            date = ""
+
+        #플레이 타임
+        try:
+            play_time = soup.find('div',{'class':"playTime"}).get_text().split('last two weeks / ')[-1].split(' hrs on record')[0]
+        except:
+            play_time = ""
+
+        #추천,비추천
+        try:
+            recommend = soup.find('div',{'class':"ratingSummary"}).get_text()
+        except:
+            recommend = ""
+
+        #증정유무
+        try:
+            tooltip = soup.find('div',{'class':"received_compensation tooltip"}).get_text().split('Product received for ')[-1].split('\t')[0]
+        except:
+            tooltip = ""
+
+        #유저 평가
+        ####unuseful의 경우 적용할 것
+        try :
+            d = soup.find('div',{'class':"ratingBar"}).get_text().split(' found this review helpful')
+            rate_useful = d[0].split('\t')[-1]
+            #rate_useful = d[0].strip().split(' people')[0] #1차 개선 but, 1 person 고려하여 수정 필요, 유저 평가 개선 수정
+        except :
+            rate_useful = "" 
+        try:
+            d = soup.find('div',{'class':"ratingBar"}).get_text().split(' found this review helpful')
+            rate_funny = d[1].split(' found this review funny')[0].split('\t')[0]
+        except :
+            rate_funny = ""
+
+        #평가내용
+        try:
+            review_text = soup.find('div',{'id':"ReviewText"}).get_text().strip()
+        except:
+            review_text = ""
+
+        count +=1
+
+        #review_df=review_df.append({'ID':game_code, 'Date':date,'User_id':user_id,'play_time':play_time,'rate_funny':rate_funny,'rate_useful':rate_useful,'recommend':recommend,'review_text':review_text,'review_url':review_url,'tooltip':tooltip,'scraptime':datetime.datetime.now()}, ignore_index = True)
+        review=pd.DataFrame([{'ID':game_code, 'Date':date,'User_id':user_id,
+                              'play_time':play_time,'rate_funny':rate_funny,'rate_useful':rate_useful,
+                              'recommend':recommend,'review_text':review_text,'review_url':review_url,
+                              'tooltip':tooltip,'scraptime':datetime.datetime.now()}])
+        review_df=pd.concat([review_df,review],ignore_index=True)
+
+    print("Done")
+    return review_df
 
 #chromedriver 위치는 사용자 환경에 맞춰 수정 필요
 runningSystem=platform.system() #구동환경 확인
@@ -96,7 +223,7 @@ elif runningSystem=="Darwin": #mac os
     from webdriver_manager.chrome import ChromeDriverManager
     driver = webdriver.Chrome(ChromeDriverManager().install())
 
-url = "https://store.steampowered.com/app/391220"
+url = "https://store.steampowered.com/app/391220" #test url
 
 #steam_url = pd.read_excel('game_url_list.xlsx')
 #game_list=steam_url['game_list'].tolist()

@@ -3,11 +3,12 @@ import requests
 from urllib.request import urlopen
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from html2text import html2text
 import pandas as pd
 import time
-from html2text import html2text
 import datetime
-import platform
+import platform #구동환경 확인
+from webdriver_manager.chrome import ChromeDriverManager #mac chromedriver 세팅
 
 #함수
 #game information crawling
@@ -88,7 +89,7 @@ def game_info(steam_game):
 
     return game_df
 #game review crawling
-def review_game(steam_game):
+def review_game(steam_game, scroll_pause_time=0, scroll_counter=9):
     review_df = pd.DataFrame(columns=['ID','Date','User_id','play_time','rate_funny','rate_useful','recommend','review_text','review_url','tooltip','scraptime'])
     #추가되는 culum에 따라 순서를 보기 좋게 배열할 것
 
@@ -102,10 +103,6 @@ def review_game(steam_game):
     #move_page
     driver.get(reviews_page)
 
-    #==스크롤 구간==
-    #scroll
-    scroll_pause_time = 3 #컴퓨팅 상황에 따라 변경
-    scroll_counter = 200
     # Get scroll height
     last_height = driver.execute_script("return document.body.scrollHeight")
     i=0
@@ -214,13 +211,11 @@ def review_game(steam_game):
     print("Done")
     return review_df
 
-#chromedriver 위치는 사용자 환경에 맞춰 수정 필요
-runningSystem=platform.system() #구동환경 확인
 #run webdriver
+runningSystem=platform.system() #구동환경 확인
 if runningSystem=="Windows":  #windows os
-    driver = webdriver.Chrome('/Download/chromedriver') 
+    driver = webdriver.Chrome('/Download/chromedriver') #chromedriver 위치는 사용자 환경에 맞춰 수정 필요
 elif runningSystem=="Darwin": #mac os
-    from webdriver_manager.chrome import ChromeDriverManager
     driver = webdriver.Chrome(ChromeDriverManager().install())
 
 url = "https://store.steampowered.com/app/391220" #test url
@@ -228,10 +223,6 @@ url = "https://store.steampowered.com/app/391220" #test url
 #steam_url = pd.read_excel('game_url_list.xlsx')
 #game_list=steam_url['game_list'].tolist()
 
-#html = requests.get(url)
-#html = html.content
-#soup = BeautifulSoup(html, 'html.parser')
-#soup_detail = soup.find('div',{'class':'block responsive_apppage_details_left game_details underlined_links'}).find('div',{'class':'details_block'})
-#print(soup_detail)
 a=game_info(url)
-print(a)
+b=review_game(url,2,9)
+print(b)

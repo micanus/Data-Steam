@@ -13,7 +13,8 @@ from webdriver_manager.chrome import ChromeDriverManager #mac chromedriver 세�
 #함수
 #game information crawling
 def game_info(steam_game):
-    game_df = pd.DataFrame(columns=['ID','Title','Genre','Developer','Publisher','Franchies','Release_date','Recent_reviews','All_reviews','URL','scraptime'])
+    game_df = pd.DataFrame(columns=['ID','Title','Genre','Developer','Publisher','Franchies',
+                                    'Release_date','Recent_reviews','All_reviews','URL','scraptime'])
     #추가되는 culum에 따라 순서를 보기 좋게 배열할 것
     
     #move_page
@@ -36,7 +37,8 @@ def game_info(steam_game):
 
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
-    soup_detail = soup.find('div',{'class':'block responsive_apppage_details_left game_details underlined_links'}).find('div',{'class':'details_block'})
+    soup_detail = soup.find('div',{'class':'block responsive_apppage_details_left game_details underlined_links'})\
+        .find('div',{'class':'details_block'})
 
     #url
     url = driver.current_url
@@ -73,33 +75,34 @@ def game_info(steam_game):
     release_date = soup.find('div',{'class':'release_date'}).find('div',{'class':'date'}).get_text()
 
     #recent_reviews
-    e=soup.find('div',{'id':'review_histogram_recent_section'}).find('div',{'class':'summary_section'}).get_text().strip().split('Recent Reviews:')
+    e=soup.find('div',{'id':'review_histogram_recent_section'}).find('div',{'class':'summary_section'})\
+        .get_text().strip().split('Recent Reviews:')
     recent_reviews = ' '.join(html2text(''.join(map(str,e))).split())
 
     #all_reviews
-    f = soup.find('div',{'id':'review_histogram_rollup_section'}).find('div',{'class':'summary_section'}).get_text().strip().split('Overall Reviews:')
+    f = soup.find('div',{'id':'review_histogram_rollup_section'}).find('div',{'class':'summary_section'})\
+        .get_text().strip().split('Overall Reviews:')
     all_reviews = ' '.join(html2text(''.join(map(str,f))).split())
 
-    #append dataframe #append제거 관련 concat 변경
-    #game_df=game_df.append({'ID':game_code, 'Title':game_title, 'Genre':genre, 'Developer':developer, 'Publisher':publisher, 'Franchies':franchies, 'Release_date':release_date, 'Recent_reviews':recent_reviews, 'All_reviews':all_reviews, 'URL':url, 'scraptime':datetime.datetime.now()}, ignore_index = True)
+    #concat dataframe
     info=pd.DataFrame([{'ID':game_code, 'Title':game_title, 'Genre':genre, 'Developer':developer,
                         'Publisher':publisher, 'Franchies':franchies, 'Release_date':release_date,
-                        'Recent_reviews':recent_reviews, 'All_reviews':all_reviews, 'URL':url, 'scraptime':datetime.datetime.now()}])
+                        'Recent_reviews':recent_reviews, 'All_reviews':all_reviews, 
+                        'URL':url, 'scraptime':datetime.datetime.now()}])
     game_df=pd.concat([game_df,info],ignore_index=True)
 
     return game_df
 #game review crawling
 def review_game(steam_game, scroll_pause_time=0, scroll_counter=9):
-    review_df = pd.DataFrame(columns=['ID','Date','User_id','play_time','rate_funny','rate_useful','recommend','review_text','review_url','tooltip','scraptime'])
+    review_df = pd.DataFrame(columns=['ID','Date','User_id','play_time','rate_funny','rate_useful',
+                                      'recommend','review_text','review_url','tooltip','scraptime'])
     #추가되는 culum에 따라 순서를 보기 좋게 배열할 것
 
     #move_page
     driver.get(steam_game)
-
     #review page make
     game_code = driver.current_url.split('/')[4]
     reviews_page = ("https://steamcommunity.com/app/%s/reviews/?browsefilter=toprated&filterLanguage=english" %game_code)
-
     #move_page
     driver.get(reviews_page)
 
@@ -118,8 +121,6 @@ def review_game(steam_game, scroll_pause_time=0, scroll_counter=9):
         last_height = new_height
         i+=1
 
-    #==스크롤 구간 끝==
-
     #review url list make
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
@@ -130,14 +131,12 @@ def review_game(steam_game, scroll_pause_time=0, scroll_counter=9):
     for i in range(len(a)) :
         #user_article_list.append(str(a[i]).split('data-modal-content-url=\"')[-1].split('\" style=')[0])
         user_article_list.append(str(a[i]).split('data-modal-content-url=\"')[-1].split('\" data-panel=')[0])
-
     #print(user_article_list)
 
     #review scraping
-    count = 0 
+    count = 0
     #print("total link:", len(user_article_list))
     for user_article in user_article_list:
-
         #진행도
         if count % 10 ==0:
             print(str(count),"/", len(user_article_list), end='\r') #캐리지 리턴(\r) 사용, 제자리 출력
@@ -157,13 +156,15 @@ def review_game(steam_game, scroll_pause_time=0, scroll_counter=9):
 
         # 날짜
         try:
-            date = soup.find('div',{'class':"recommendation_date"}).get_text().split('Posted: ')[-1].split('\t')[0]
+            date = soup.find('div',{'class':"recommendation_date"}).get_text()\
+                .split('Posted: ')[-1].split('\t')[0]
         except:
             date = ""
 
         #플레이 타임
         try:
-            play_time = soup.find('div',{'class':"playTime"}).get_text().split('last two weeks / ')[-1].split(' hrs on record')[0]
+            play_time = soup.find('div',{'class':"playTime"}).get_text()\
+                .split('last two weeks / ')[-1].split(' hrs on record')[0]
         except:
             play_time = ""
 
@@ -175,7 +176,8 @@ def review_game(steam_game, scroll_pause_time=0, scroll_counter=9):
 
         #증정유무
         try:
-            tooltip = soup.find('div',{'class':"received_compensation tooltip"}).get_text().split('Product received for ')[-1].split('\t')[0]
+            tooltip = soup.find('div',{'class':"received_compensation tooltip"}).get_text()\
+                .split('Product received for ')[-1].split('\t')[0]
         except:
             tooltip = ""
 
@@ -201,7 +203,7 @@ def review_game(steam_game, scroll_pause_time=0, scroll_counter=9):
 
         count +=1
 
-        #review_df=review_df.append({'ID':game_code, 'Date':date,'User_id':user_id,'play_time':play_time,'rate_funny':rate_funny,'rate_useful':rate_useful,'recommend':recommend,'review_text':review_text,'review_url':review_url,'tooltip':tooltip,'scraptime':datetime.datetime.now()}, ignore_index = True)
+        #concat review_df
         review=pd.DataFrame([{'ID':game_code, 'Date':date,'User_id':user_id,
                               'play_time':play_time,'rate_funny':rate_funny,'rate_useful':rate_useful,
                               'recommend':recommend,'review_text':review_text,'review_url':review_url,
@@ -218,11 +220,28 @@ if runningSystem=="Windows":  #windows os
 elif runningSystem=="Darwin": #mac os
     driver = webdriver.Chrome(ChromeDriverManager().install())
 
-url = "https://store.steampowered.com/app/391220" #test url
+#test
+#url = "https://store.steampowered.com/app/391220" #test url
+#a=game_info(url)
+#b=review_game(url,2,9)
+#print(a)
+#print(b)
 
-#steam_url = pd.read_excel('game_url_list.xlsx')
-#game_list=steam_url['game_list'].tolist()
+#excel file list
+steam_url = pd.read_excel('game_url_list.xlsx') #수집대상 steam game url dataframe load
+game_list=steam_url['game_list'].tolist() #수집대상 url list
 
-a=game_info(url)
-b=review_game(url,2,9)
-print(b)
+#data frame make
+game_df = pd.DataFrame(columns=['ID','Title','Genre','Developer','Publisher','Franchies',
+                                'Release_date','Recent_reviews','All_reviews','URL','scraptime'])
+review_df = pd.DataFrame(columns=['ID','Date','User_id','play_time','rate_funny','rate_useful',
+                                  'recommend','review_text','review_url','tooltip','scraptime'])
+
+#start scraping
+for steam_game in game_list:
+    game_df=pd.concat(game_df,game_info(steam_game))
+    review_df=pd.concat(review_df,review_game(steam_game,2,9))
+
+#save dataframe
+game_df.to_excel('game_list_df.xlsx')
+review_df.to_excel('game_review_df.xlsx')
